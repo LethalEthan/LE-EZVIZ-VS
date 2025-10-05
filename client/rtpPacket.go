@@ -1,0 +1,85 @@
+package client
+
+import (
+	"encoding/binary"
+	"errors"
+
+	"go.uber.org/zap"
+)
+
+const RTPFixedHeaderLen = 12
+const PaddingBit byte = 0x20
+const ExtensionBit byte = 0x10
+const ContributionBits byte = 0x0f
+const Marker byte = 0x80
+
+/*
+ 128 64  32   16  8 4 2 1
+|Version| P | X |   CC   |
+*/
+
+// A rudimentary RTP header decode
+func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
+	Version := buf[0] >> 6
+	Padding := (buf[0] & PaddingBit) != 0
+	Extension := (buf[0] & ExtensionBit) != 0
+	ContributionCount := buf[0] & ContributionBits
+	Marker := (buf[1] & 0x80) != 0
+	PayloadType := buf[1] & 0x7F
+	SequenceNumber := binary.BigEndian.Uint16(buf[2:4])
+	TimeStamp := binary.BigEndian.Uint32(buf[4:8])
+	SSI := binary.BigEndian.Uint32(buf[8:12])
+	offset := RTPFixedHeaderLen
+	if ContributionCount > 0 {
+		ContributionLength := len(buf) * 4
+		if len(buf) < ContributionLength+offset {
+			return errors.New("csrc is greater than buffer provided")
+		}
+		CSRC := make([]uint32, ContributionCount)
+		for i := 0; i < int(ContributionCount); i++ {
+			CSRC[i] = binary.BigEndian.Uint32(buf[offset+i*4 : offset+i*4+4])
+			log.Debug("RTP CSRC", zap.Uint32("CSRC", CSRC[i]))
+		}
+		offset += ContributionLength
+	}
+	// var ExtensionData []byte
+	if Extension {
+		if len(buf) < offset+4 {
+			return errors.New("extensionc is greater than buffer provided")
+		}
+		ExtensionProfile := binary.BigEndian.Uint16(buf[offset : offset+2])
+		ExtensionLength := binary.BigEndian.Uint16(buf[offset+2 : offset+4])
+		log.Debug("RTP Extension", zap.Uint16("Profile", ExtensionProfile), zap.Uint16("Length", ExtensionLength))
+		offset += 4
+		ExtensionBytes := int(ExtensionLength) * 4
+		if len(buf) < offset+ExtensionBytes {
+			return errors.New("extension is greater than buffer provided")
+		}
+		if ExtensionBytes > 0 {
+			// ExtensionData = make([]byte, ExtensionBytes)
+			// copy(ExtensionData, buf[offset:offset+ExtensionBytes])
+			log.Sugar().Debugf("RTP Extension Data: %x", buf[offset:offset+ExtensionBytes])
+		} else {
+			// ExtensionData = nil
+		}
+		offset += ExtensionBytes
+	}
+	if len(buf) < offset {
+		return errors.New("buffer is smaller than offset")
+	}
+	Payload := buf[offset:]
+	if Padding {
+		if len(Payload) == 0 {
+			return errors.New("no more bytes cannot be pad")
+		}
+		PadLen := int(Payload[len(Payload)-1])
+		if PadLen == 0 || len(Payload) < PadLen || PadLen > 255 {
+			return errors.New("invalid padding length")
+		}
+		Payload = Payload[:len(Payload)-PadLen]
+	}
+	// CI := binary.BigEndian.Uint32(buf[15:19])
+	log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
+	log.Sugar().Debugf("RTP Payload: %x", Payload)
+	return nil
+}

@@ -144,6 +144,12 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 					n += ReadByteCount
 				}
 			}
+			if Chan == 0x01 {
+				err = LEZ.DecodeRTP(Packet.Body)
+				if err != nil {
+					log.Error("Error decoding RTP", zap.Error(err))
+				}
+			}
 			if len(Packet.Body) > 64 {
 				log.Sugar().Debugf("packet 64b in hex: %x", Packet.Body[:64])
 			} else {
