@@ -87,7 +87,8 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 			return errors.New("Result is nil")
 		}
 		if *Rsp.Result != 0 {
-			return errors.New("Response result not 0" + strconv.Itoa(int(*Rsp.Result)))
+			err := LEZ.CheckRetcode(*Rsp.Result)
+			return err
 		}
 		if Rsp.Streamssn == nil {
 			return errors.New("Streamssn nil")
