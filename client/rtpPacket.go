@@ -20,6 +20,10 @@ const Marker byte = 0x80
 
 // A rudimentary RTP header decode
 func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
+	if buf[0] == 0 && buf[1] == 0 && buf[2] == 1 || buf[0] == 0 && buf[1] == 0 && buf[2] == 0 && buf[3] == 1 {
+		log.Debug("This is not RTP, NAL header?")
+		return nil
+	}
 	Version := buf[0] >> 6
 	Padding := (buf[0] & PaddingBit) != 0
 	Extension := (buf[0] & ExtensionBit) != 0
@@ -78,26 +82,47 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 		}
 		Payload = Payload[:len(Payload)-PadLen]
 	}
-	if len(Payload) > 2 {
-		switch (Payload[0] >> 1) & 0x3f {
-		case 0x30:
-			log.Debug("H265 frame")
-		case 0x31:
-			log.Debug("H265 frame")
+	if len(Payload) > 10 {
+		h265 := (Payload[0] >> 1) & 0x3f
+		if h265 == 0x30 {
+			log.Debug("H265/HEVC frame more work needed")
+		}
+		if h265 == 0x31 {
+			log.Debug("H265/HEVC frame")
 			if Payload[2]&0x80 != 0 {
 				Payload = AddAVCStartCode(Payload)
 			} else {
-				// missing
+				// missing more work needed on processing frame
 			}
-		default:
-			log.Debug("Other codec, H265 has some support but is not 100% some information is missing")
+		} //!=0x32, need to extract profile and codecinfo first
+		h264 := Payload[0] & 0x1f
+		if h264 != 9 {
+			switch h264 {
+			case 0x18:
+				log.Debug("H264/AVC frame more work needed")
+			case 0x1c:
+				log.Debug("H264/AVC frame")
+				if (Payload[1] & 0xc0) == 0x80 {
+					Payload = AddAVCStartCode(Payload)
+				}
+			default:
+				log.Debug("H264/AVC frame with NAL")
+				// log.Sugar().Debugf("first 10b: %x", Payload[0:10])
+				// Payload = AddAVCStartCode(Payload)
+			}
+		} else {
+			log.Debug("Unknown H264/AVC")
 		}
+	}
+	if Version != 2 {
+		log.Debug("RTP version is not 2, this is a different stream type not yet supported")
 	}
 	log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
 	log.Sugar().Debugf("RTP Payload: %x", Payload)
 	return nil
 }
 
+// AVCStartCode/NAL we replace the first four bytes after we check it is H264/H265
 func AddAVCStartCode(buf []byte) []byte {
 	buf[0] = 0
 	buf[1] = 0
