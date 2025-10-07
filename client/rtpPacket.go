@@ -25,6 +25,10 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 		return nil
 	}
 	Version := buf[0] >> 6
+	if Version != 2 {
+		log.Debug("RTP version is not 2, this is a different stream type not yet supported")
+		return nil
+	}
 	Padding := (buf[0] & PaddingBit) != 0
 	Extension := (buf[0] & ExtensionBit) != 0
 	ContributionCount := buf[0] & ContributionBits
@@ -113,9 +117,6 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 		} else {
 			log.Debug("Unknown H264/AVC")
 		}
-	}
-	if Version != 2 {
-		log.Debug("RTP version is not 2, this is a different stream type not yet supported")
 	}
 	log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
 	log.Sugar().Debugf("RTP Payload: %x", Payload)
