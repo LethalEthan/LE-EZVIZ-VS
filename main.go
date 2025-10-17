@@ -17,6 +17,8 @@ var terminalName = flag.String("terminalName", "LE-EZ", "Optional: Set the name 
 var preservefc = flag.Bool("preserveFeatureCode", true, "Preserve the featurecode, it is essentially a random ID to identify the terminal")
 var deviceSerial = flag.String("deviceSerial", "", "The device serial you want to connect to")
 var preserveSession = flag.Bool("preserveSession", false, "Preserve session token") //TBD
+var stdout = flag.Bool("stdout", true, "Print log to the terminal")
+var logFile = flag.Bool("logFile", true, "Print log to lez.log")
 var log *zap.Logger
 
 func main() {
@@ -27,6 +29,7 @@ func main() {
 	if *password == "" {
 		panic("password empty")
 	}
+	logging.CreateLogger(*logFile, *stdout)
 	client.CurrentRegion = *region
 	client.TerminalName = *terminalName
 	log = logging.Log

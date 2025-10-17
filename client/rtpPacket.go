@@ -57,7 +57,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 		}
 		ExtensionProfile := binary.BigEndian.Uint16(buf[offset : offset+2])
 		ExtensionLength := binary.BigEndian.Uint16(buf[offset+2 : offset+4])
-		log.Debug("RTP Extension", zap.Uint16("Profile", ExtensionProfile), zap.Uint16("Length", ExtensionLength))
+		log.Debug("RTP Extension", zap.Uint16("Profile", ExtensionProfile), zap.Uint16("Length", ExtensionLength*4))
 		offset += 4
 		ExtensionBytes := int(ExtensionLength) * 4
 		if len(buf) < offset+ExtensionBytes {
@@ -94,7 +94,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 		if h265 == 0x31 {
 			log.Debug("H265/HEVC frame")
 			if Payload[2]&0x80 != 0 {
-				Payload = AddAVCStartCode(Payload)
+				Payload = ReplaceAVCStartCode(Payload)
 				log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
 				log.Sugar().Debugf("RTP Payload: %x", Payload)
 				return Payload, nil
@@ -110,7 +110,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 			case 0x1c:
 				log.Debug("H264/AVC frame")
 				if (Payload[1] & 0xc0) == 0x80 {
-					Payload = AddAVCStartCode(Payload)
+					Payload = ReplaceAVCStartCode(Payload)
 					log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
 					log.Sugar().Debugf("RTP Payload: %x", Payload)
 					return nil, nil
@@ -118,7 +118,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 			default:
 				log.Debug("H264/AVC frame with NAL")
 				log.Sugar().Debugf("RTP Payload: %x", Payload)
-				Payload = AddAVCStartCode(Payload)
+				Payload = ReplaceAVCStartCode(Payload)
 				return nil, nil
 				// log.Sugar().Debugf("first 10b: %x", Payload[0:10])
 
@@ -132,11 +132,21 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 	return nil, nil
 }
 
+// Currently unsure whether to replace or append the start code
+// Added both so we can mess around with the stream
+
 // AVCStartCode/NAL we replace the first four bytes after we check it is H264/H265
-func AddAVCStartCode(buf []byte) []byte {
+func ReplaceAVCStartCode(buf []byte) []byte {
 	buf[0] = 0
 	buf[1] = 0
 	buf[2] = 0
 	buf[3] = 1
 	return buf
+}
+
+func AppendAVCStartCode(buf []byte) []byte {
+	avc := make([]byte, 0, len(buf)+4)
+	avc = append(avc, []byte{0, 0, 0, 1}...)
+	avc = append(avc, buf...)
+	return avc
 }

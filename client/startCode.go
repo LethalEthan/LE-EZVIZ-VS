@@ -6,9 +6,8 @@ var packetBuf = make([]byte, 0, 4096)
 
 func DecodeMPEG2PS(buf []byte) {
 	hasStartCode := false
-	var payload []byte
 	if buf[0] == 0 && buf[1] == 0 && buf[2] == 1 && buf[3] == 0xba {
-		payload = buf[3:]
+		// payload = buf[3:]
 		log.Debug("Attmepting decode of startcode")
 		hasStartCode = true
 	}
@@ -17,13 +16,11 @@ func DecodeMPEG2PS(buf []byte) {
 	// 	log.Debug("Attmepting decode of startcode")
 	// 	hasStartCode = true
 	// }
-	if hasStartCode && len(payload) > 4 {
-		if payload[0] == 0xBA {
-			log.Debug("MPEG2-PS")
-			PS := FindPSwithinbuffer(payload)
-			if PS != nil {
+	if hasStartCode && len(buf) > 4 {
+		log.Debug("MPEG2-PS")
+		PS := FindPSwithinbuffer(buf)
+		if PS != nil {
 
-			}
 		}
 	}
 }
