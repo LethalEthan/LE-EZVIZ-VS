@@ -2,8 +2,10 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -17,6 +19,8 @@ type VTDUStream struct {
 	VTMStreamKey  string
 	SessionKey    string
 	MasterKey     string
+	Codec         int
+	Transport     int
 }
 
 func (LEZ *LE_EZVIZ_Client) ConnectVTDU(vtduIP string, vtduPort int, vtmStreamKey, vtmPublicKey string) (*VTDUStream, error) {
@@ -99,6 +103,11 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 			return err
 		}
 		log.Debug("Print first 64 bytes of packets as an example, further handling is needed. I believe these are like RTSP interleaved packets over TCP")
+		// streamFile, err := os.Create("stream")
+		// if err != nil {
+		// 	panic(err)
+		// }
+		go SendKA(VTDUstream.Conn, *Rsp.Streamssn)
 		for {
 			Packet := new(VTMPacket)
 			Packet.Header = make([]byte, 8)
@@ -146,18 +155,43 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 				}
 			}
 			if Chan == 0x01 {
-				err = LEZ.DecodeRTP(Packet.Body)
-				if err != nil {
-					log.Error("Error decoding RTP", zap.Error(err))
+				if VTDUstream.Transport == TRANS_UNKNOWN {
+					VTDUstream.Transport = DetectTransport(Packet.Body)
+				}
+				if VTDUstream.Transport == TRANS_MPEG_PS {
+					log.Debug("Transport is MPEG-PS")
+					// PS := FindPSwithinbuffer(Packet.Body)
+					// if PS != nil {
+					// streamFile.Write(Packet.Body)
+					// }
+				}
+				if VTDUstream.Transport == TRANS_RTP {
+					log.Debug("Transport is RTP")
+					_, err := LEZ.DecodeRTP(Packet.Body)
+					if err != nil {
+						log.Error("Error decoding RTP", zap.Error(err))
+					}
 				}
 			}
+			// if Packet.Body[0] != 0 {}
+
+			// }else {
+			// 	DecodeStartCode(Packet.Body)
+			// }
+			// 	// if Packet.Body[0] == 0 && Packet.Body[1] == 0 && Packet.Body[2] == 1 {
+			// 	// if payload != nil {
+			// 	streamFile.Write(Packet.Body) //payload) //Packet.Body)
+			// 	// }
+			// 	// }
+			// }
 			if len(Packet.Body) > 64 {
 				log.Sugar().Debugf("packet 64b in hex: %x", Packet.Body[:64])
 			} else {
 				log.Sugar().Debugf("whole packet in hex: %x", Packet.Body)
 			}
-
 		}
+		// streamFile.Sync()
+		// streamFile.Close()
 	} else {
 		log.Error("Closing connection invalid sequence of messages", zap.Uint16("Recieved", Msg), zap.Uint16("Expected", MSG_STREAMINFO_RSP))
 		VTDUstream.Conn.Close()
@@ -177,4 +211,12 @@ func SendKeepAlive(Sock net.Conn, StreamSSN string) error {
 		return err
 	}
 	return nil
+}
+
+func SendKA(Sock net.Conn, StreamSSN string) {
+	ticker := time.NewTicker(15 * time.Second)
+	for t := range ticker.C {
+		fmt.Println("Sending KA at", t)
+		SendKeepAlive(Sock, StreamSSN)
+	}
 }

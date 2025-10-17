@@ -19,15 +19,15 @@ const Marker byte = 0x80
 */
 
 // A rudimentary RTP header decode
-func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
+func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 	if buf[0] == 0 && buf[1] == 0 && buf[2] == 1 || buf[0] == 0 && buf[1] == 0 && buf[2] == 0 && buf[3] == 1 {
 		log.Debug("This is not RTP, NAL header?")
-		return nil
+		return nil, nil
 	}
 	Version := buf[0] >> 6
 	if Version != 2 {
 		log.Debug("RTP version is not 2, this is a different stream type not yet supported")
-		return nil
+		return nil, nil
 	}
 	Padding := (buf[0] & PaddingBit) != 0
 	Extension := (buf[0] & ExtensionBit) != 0
@@ -41,7 +41,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 	if ContributionCount > 0 {
 		ContributionLength := len(buf) * 4
 		if len(buf) < ContributionLength+offset {
-			return errors.New("csrc is greater than buffer provided")
+			return nil, errors.New("csrc is greater than buffer provided")
 		}
 		CSRC := make([]uint32, ContributionCount)
 		for i := 0; i < int(ContributionCount); i++ {
@@ -53,7 +53,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 	// var ExtensionData []byte
 	if Extension {
 		if len(buf) < offset+4 {
-			return errors.New("extensionc is greater than buffer provided")
+			return nil, errors.New("extensionc is greater than buffer provided")
 		}
 		ExtensionProfile := binary.BigEndian.Uint16(buf[offset : offset+2])
 		ExtensionLength := binary.BigEndian.Uint16(buf[offset+2 : offset+4])
@@ -61,7 +61,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 		offset += 4
 		ExtensionBytes := int(ExtensionLength) * 4
 		if len(buf) < offset+ExtensionBytes {
-			return errors.New("extension is greater than buffer provided")
+			return nil, errors.New("extension is greater than buffer provided")
 		}
 		if ExtensionBytes > 0 {
 			// ExtensionData = make([]byte, ExtensionBytes)
@@ -73,16 +73,16 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 		offset += ExtensionBytes
 	}
 	if len(buf) < offset {
-		return errors.New("buffer is smaller than offset")
+		return nil, errors.New("buffer is smaller than offset")
 	}
 	Payload := buf[offset:]
 	if Padding {
 		if len(Payload) == 0 {
-			return errors.New("no more bytes cannot be pad")
+			return nil, errors.New("no more bytes cannot be pad")
 		}
 		PadLen := int(Payload[len(Payload)-1])
 		if PadLen == 0 || len(Payload) < PadLen || PadLen > 255 {
-			return errors.New("invalid padding length")
+			return nil, errors.New("invalid padding length")
 		}
 		Payload = Payload[:len(Payload)-PadLen]
 	}
@@ -95,6 +95,9 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 			log.Debug("H265/HEVC frame")
 			if Payload[2]&0x80 != 0 {
 				Payload = AddAVCStartCode(Payload)
+				log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
+				log.Sugar().Debugf("RTP Payload: %x", Payload)
+				return Payload, nil
 			} else {
 				// missing more work needed on processing frame
 			}
@@ -108,11 +111,17 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 				log.Debug("H264/AVC frame")
 				if (Payload[1] & 0xc0) == 0x80 {
 					Payload = AddAVCStartCode(Payload)
+					log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
+					log.Sugar().Debugf("RTP Payload: %x", Payload)
+					return nil, nil
 				}
 			default:
 				log.Debug("H264/AVC frame with NAL")
+				log.Sugar().Debugf("RTP Payload: %x", Payload)
+				Payload = AddAVCStartCode(Payload)
+				return nil, nil
 				// log.Sugar().Debugf("first 10b: %x", Payload[0:10])
-				// Payload = AddAVCStartCode(Payload)
+
 			}
 		} else {
 			log.Debug("Unknown H264/AVC")
@@ -120,7 +129,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) error {
 	}
 	log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
 	log.Sugar().Debugf("RTP Payload: %x", Payload)
-	return nil
+	return nil, nil
 }
 
 // AVCStartCode/NAL we replace the first four bytes after we check it is H264/H265
