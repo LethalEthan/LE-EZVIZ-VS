@@ -12,7 +12,7 @@ import (
 
 var email = flag.String("email", "", "EZVIZ user e-mail")
 var password = flag.String("password", "", "EZVIZ user password")
-var region = flag.String("region", "Europe", "Manually set the region you are in: Europe, Africa, Oceania, NorthAmercia, SouthAmerica")
+var region = flag.String("region", "Europe", "Manually set the region you are in: Europe, Africa, India, Oceania, NorthAmercia, Russia, SouthAmerica")
 var terminalName = flag.String("terminalName", "LE-EZ", "Optional: Set the name of what your device is called when viewing registered devices (terminals)")
 var preservefc = flag.Bool("preserveFeatureCode", true, "Preserve the featurecode, it is essentially a random ID to identify the terminal")
 var deviceSerial = flag.String("deviceSerial", "", "The device serial you want to connect to")
@@ -34,7 +34,7 @@ func main() {
 	client.TerminalName = *terminalName
 	log = logging.Log
 	if _, ok := client.Regions[*region]; !ok {
-		log.Error("Invalid region", zap.String("Valid Values", "Europe|Africa|Oceania|NorthAmerica|SouthAmerica"))
+		log.Error("Invalid region", zap.String("Valid Values", "Europe|Africa|India|Oceania|NorthAmerica|Russia|SouthAmerica"))
 	}
 	LEZ, err := client.NewLE_EZVIZ_Client(*email, *password, *region, "00000000000000000000000000000000", *terminalName, "shipin7", 15)
 	if err != nil {

@@ -95,6 +95,7 @@ func (LEZ *LE_EZVIZ_Client) GetPageList() (*PageListResponse, error) {
 	resp, err := LEZ.QueryEncodedAPIRequest("GET", api.V3_USERDEVICES_V1_RESOURCES_PAGELIST, USE_API_URL, map[string]string{"sessionId": *LEZ.LoginResponse.LoginSession.SessionId, "clientType": strconv.Itoa(LEZ.ClientType), "clientNo": LEZ.ClientNo, "clientVersion": "2,5,1,2109068", "groupId": "-1", "limit": "50", "offset": "0", "filter": "VTM"})
 	if err != nil {
 		log.Error("GetPageList Request error", zap.Error(err))
+		return nil, err
 	}
 	defer resp.Body.Close()
 	bodyBytes, err := io.ReadAll(resp.Body)

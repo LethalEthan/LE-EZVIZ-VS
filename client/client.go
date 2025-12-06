@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const EZlifeurl = "ezvizlife.com"
+const EZLifeUrl = "ezvizlife.com"
 
 var TerminalName = "LE-EZ"
 var Client *http.Client
@@ -70,8 +70,13 @@ type LE_EZVIZ_Client struct {
 func NewLE_EZVIZ_Client(email, password, region, featurecode, terminalname, clientNo string, timeoutSeconds int) (*LE_EZVIZ_Client, error) {
 	LEZ := &LE_EZVIZ_Client{Email: email, Password: GetMd5(password), Region: region, FeatureCode: featurecode, TerminalName: base64.StdEncoding.EncodeToString([]byte(terminalname)), ClientType: 9, ClientNo: clientNo}
 	if v, ok := Regions[region]; ok {
-		LEZ.API_URL = "https://api" + v + "." + EZlifeurl // ex: apiieu.ezvizlife.com
-		LEZ.DOM_URL = "https://" + v + "." + EZlifeurl    // ex: ieu.ezvizlife.com
+		if region != "Russia" {
+			LEZ.API_URL = "https://api" + v + "." + EZLifeUrl // ex: apiieu.ezvizlife.com
+			LEZ.DOM_URL = "https://" + v + "." + EZLifeUrl    // ex: ieu.ezvizlife.com
+		} else {
+			LEZ.API_URL = "https://api.ezvizru.com"
+			LEZ.DOM_URL = "https://ezvizru.com/"
+		}
 	}
 	LEZ.Headers = DefaultHeaders
 	LEZ.Headers["featureCode"] = []string{featurecode}

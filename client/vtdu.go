@@ -107,7 +107,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 		// if err != nil {
 		// 	panic(err)
 		// }
-		go SendKA(VTDUstream.Conn, *Rsp.Streamssn)
+		go CreateKeepAliveTicker(VTDUstream.Conn, *Rsp.Streamssn)
 		for {
 			Packet := new(VTMPacket)
 			Packet.Header = make([]byte, 8)
@@ -213,10 +213,16 @@ func SendKeepAlive(Sock net.Conn, StreamSSN string) error {
 	return nil
 }
 
-func SendKA(Sock net.Conn, StreamSSN string) {
+func CreateKeepAliveTicker(Sock net.Conn, StreamSSN string) {
 	ticker := time.NewTicker(15 * time.Second)
 	for t := range ticker.C {
-		fmt.Println("Sending KA at", t)
-		SendKeepAlive(Sock, StreamSSN)
+		fmt.Println("Sending Keep Alive at", t)
+		err := SendKeepAlive(Sock, StreamSSN)
+		if err != nil {
+			ticker.Stop()
+			log.Error("Error sending keep alive", zap.Error(err))
+			return
+		}
 	}
+	ticker.Stop()
 }
