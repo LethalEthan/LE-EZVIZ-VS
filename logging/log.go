@@ -28,7 +28,9 @@ func CreateLogger(logFile, stdout bool) {
 	if logFile {
 		cfg.OutputPaths = append(cfg.OutputPaths, "./lez.log")
 	}
-	if Log, err = cfg.Build(); err != nil {
+	cfg.Level.SetLevel(zap.DebugLevel)
+	Log, err = cfg.Build()
+	if err != nil {
 		panic(err)
 	}
 }

@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
+	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 type VTDUStream struct {
@@ -103,14 +106,17 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 			return err
 		}
 		log.Debug("Print first 64 bytes of packets as an example, further handling is needed. I believe these are like RTSP interleaved packets over TCP")
-		// streamFile, err := os.Create("stream")
-		// if err != nil {
-		// 	panic(err)
-		// }
+		streamFile, err := os.Create("stream")
+		if err != nil {
+			panic(err)
+		}
 		go CreateKeepAliveTicker(VTDUstream.Conn, *Rsp.Streamssn)
+		// var Packets = make([]VTMPacket, 0, 1600)
+		var ATD bool
 		for {
 			Packet := new(VTMPacket)
 			Packet.Header = make([]byte, 8)
+			// VTDUstream.Conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 			if _, err = VTDUstream.Conn.Read(Packet.Header); err != nil {
 				log.Error("Error reading from TCP sock", zap.Error(err))
 				return err
@@ -134,7 +140,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 			if Msg == MSG_KEEPALIVE_REQ {
 				log.Debug("Keepalive responded")
 			}
-			Packet.Body = make([]byte, Len)
+			Packet.Body = make([]byte, 0, Len)
 			ReadByteCount, err := VTDUstream.Conn.Read(Packet.Body)
 			if err != nil {
 				log.Error("Error reading from TCP sock", zap.Error(err))
@@ -150,9 +156,10 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 						log.Error("Error reading from TCP sock", zap.Error(err))
 						return err
 					}
-					Packet.Body = append(Packet.Body, Buf...)
+					Packet.Body = append(Packet.Body[:n], Buf...)
 					n += ReadByteCount
 				}
+				Packet.Body = Packet.Body[0:n]
 			}
 			if Chan == 0x01 {
 				if VTDUstream.Transport == TRANS_UNKNOWN {
@@ -160,30 +167,48 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 				}
 				if VTDUstream.Transport == TRANS_MPEG_PS {
 					log.Debug("Transport is MPEG-PS")
+					ATD = true
+					// Find MPEG-PS, still under work
 					// PS := FindPSwithinbuffer(Packet.Body)
 					// if PS != nil {
-					// streamFile.Write(Packet.Body)
 					// }
+					// Save packets to PACKS/ - not done so ignore this
+					// Packets = append(Packets, *Packet)
+					// if len(Packets) >= 1600 {
+					// 	err := os.Mkdir("PACKS", os.ModeDir)
+					// 	if err != nil {
+					// 		panic(err)
+					// 	}
+					// }
+					_, err := streamFile.Write(Packet.Body)
+					if err != nil {
+						panic(err)
+					}
 				}
 				if VTDUstream.Transport == TRANS_RTP {
-					log.Debug("Transport is RTP")
+					log.Debug("Transport is RTP, this is still WIP, MPEG-PS is working currently")
 					_, err := LEZ.DecodeRTP(Packet.Body)
 					if err != nil {
 						log.Error("Error decoding RTP", zap.Error(err))
 					}
 				}
 			}
-			// if Packet.Body[0] != 0 {}
-
-			// }else {
-			// 	DecodeStartCode(Packet.Body)
-			// }
-			// 	// if Packet.Body[0] == 0 && Packet.Body[1] == 0 && Packet.Body[2] == 1 {
-			// 	// if payload != nil {
-			// 	streamFile.Write(Packet.Body) //payload) //Packet.Body)
-			// 	// }
-			// 	// }
-			// }
+			if Chan == 0x00 && Seq == 0x00 && ATD {
+				log.Info("Attempting ffmpeg re-encode to mp4")
+				var eg errgroup.Group
+				stream := ffmpeg.Input("./stream").
+					Output("stream.mp4", ffmpeg.KwArgs{
+						"vcodec": "copy",
+						"f":      "mp4",
+					})
+				eg.Go(func() error {
+					return stream.OverWriteOutput().Run()
+				})
+				if err := eg.Wait(); err != nil {
+					log.Error("Error ffo: ", zap.Error(err))
+					return err
+				}
+			}
 			if len(Packet.Body) > 64 {
 				log.Sugar().Debugf("packet 64b in hex: %x", Packet.Body[:64])
 			} else {
