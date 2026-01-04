@@ -110,6 +110,10 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 		if err != nil {
 			panic(err)
 		}
+		// rtpStreamFile, err := os.Create("rtp_stream")
+		// if err != nil {
+		// 	panic(err)
+		// }
 		go CreateKeepAliveTicker(VTDUstream.Conn, *Rsp.Streamssn)
 		// var Packets = make([]VTMPacket, 0, 1600)
 		var ATD bool
@@ -186,10 +190,16 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 					}
 				}
 				if VTDUstream.Transport == TRANS_RTP {
-					log.Debug("Transport is RTP, this is still WIP, MPEG-PS is working currently")
-					_, err := LEZ.DecodeRTP(Packet.Body)
+					log.Debug("Transport is RTP, this is still WIP, H.265 works")
+					ATD = true
+					// rtpStreamFile.Write(Packet.Body)
+					Payload, err := LEZ.DecodeRTP(Packet.Body)
 					if err != nil {
 						log.Error("Error decoding RTP", zap.Error(err))
+					}
+					_, err = streamFile.Write(Payload)
+					if err != nil {
+						panic(err)
 					}
 				}
 			}
@@ -208,6 +218,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 					log.Error("Error ffo: ", zap.Error(err))
 					return err
 				}
+				return nil
 			}
 			if len(Packet.Body) > 64 {
 				log.Sugar().Debugf("packet 64b in hex: %x", Packet.Body[:64])

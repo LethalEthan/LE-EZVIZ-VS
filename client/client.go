@@ -120,7 +120,7 @@ func (LEZ *LE_EZVIZ_Client) FormURLEncodedAPIRequest(method, endpoint string, ur
 	default:
 		return nil, errors.New("unknown url type")
 	}
-	log.Info("Request", zap.String("URL", baseURL+endpoint), zap.String("FormData", encodedFormData))
+	log.Debug("Request", zap.String("URL", baseURL+endpoint), zap.String("FormData", encodedFormData))
 	req, err := http.NewRequest(method, baseURL+endpoint, strings.NewReader(encodedFormData))
 	if err != nil {
 		log.Error("Error creating request", zap.Error(err))
@@ -172,7 +172,7 @@ func (LEZ *LE_EZVIZ_Client) QueryEncodedAPIRequest(method, endpoint string, urlt
 	default:
 		return nil, errors.New("unknown url type")
 	}
-	log.Info("Request", zap.String("URL", baseURL+endpoint+encodedFormData))
+	log.Debug("Request", zap.String("URL", baseURL+endpoint+encodedFormData))
 	req, err := http.NewRequest(method, baseURL+endpoint+encodedFormData, nil)
 	if err != nil {
 		log.Error("Error creating request", zap.Error(err))

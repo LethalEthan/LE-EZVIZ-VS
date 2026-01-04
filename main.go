@@ -64,7 +64,9 @@ func main() {
 	for _, v := range *PageList.DeviceInfos {
 		log.Info(v.Name, zap.String("Serial", v.DeviceSerial))
 	}
-	fmt.Println(PageList.VTM)
+	// fmt.Println(PageList.VTM)
+	fmt.Println("!!!WARNING: This library is in beta, only use for development/testing until it is stable, things will change as development continues!!!")
+	fmt.Println("!!!Encryption is not yet available including E2EE with stream servers, your streams will be unencrypted until encryption is implemented!!!")
 	if *deviceSerial != "" {
 		var RI client.Resource
 		var DI client.DeviceInfos

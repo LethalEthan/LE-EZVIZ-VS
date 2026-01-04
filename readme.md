@@ -4,7 +4,7 @@ LE-EZVIZ-VS, this is a piece of my wider project of creating a fully fledged pro
 
 After many months of reverse engineering (2024 August - December, and 2025 September - now) First stage was general looking around and seeing what I could find, second stage was more specific on looking into the video streaming flow as my personal goal is to retrieve the video streams of my own devices and do whatever the hell I want with it.
 
-I have developed an example of connecting to EZVIZ Video Management System. I'll delve into a little on how it works, during the login flow it gives a VTM address you connect to for video streams, VTM I believe stands for Video Transmission Manangement. VTM as I observe is a load balancer that then points you to a VTDU (I believe this means Video Transmission Data Unit) that is the server that streams the video feed.
+I have developed an example of connecting to EZVIZ Video Management System. I'll delve into a little on how it works, during the login flow it gives a VTM address you connect to for video streams, VTM I believe stands for Video Transmission Manangement. VTM as I observe is a load balancer that then points you to a VTDU (I believe this means Video Transmission Data/Distribution Unit) that is the server that streams the video feed.
 
 ## Limitations
 
@@ -13,6 +13,9 @@ Currently encryption is unsupported, I have a decent idea on how it works and ho
 As seen with the VTM packet format the channel depicts whether it is an encrypted message or stream (0x00 for unencrypted message and 0x01 for unecrypted stream, 0x0a for encrypted message and 0x0b for encrypted stream), most of the time it is encrypted but some do not use it which is mainly older cameras. There are effectively 2 layers of encryption as you may guess from the Image/Video Encryption option. There is E2EE with VTM/VTDU which is still yet to be implemented and then the stream is encrypted with the password you set. The E2EE is ECDHE with Prime-256 curve, the stream I believe is AES-128 I am unsure which cipher mode it is but we'll cross the encryption bridge when we have a good foundation.
 
 As I am only one person looking into this and not seeing much else online, information is quite scarce and with a limited amount of tools and knowledge I cannot provide a 100% implementation yet. That is why I am releasing this in it's current state to share my knowledge and induce collaboration and work on this so we can reimplement video streaming capabilities that we should have access to.
+
+## What currently works
+Currently as of 2026-01-04, MPEG-PS streaming works and so does H.265 RTP streams with no encryption enabled.
 
 ## If you want to help
 

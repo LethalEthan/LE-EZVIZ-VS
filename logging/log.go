@@ -11,7 +11,7 @@ func init() {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.OutputPaths = []string{
 		"stdout",
-		// "./lez.log",
+		"./lez.log",
 	}
 	if Log, err = cfg.Build(); err != nil {
 		panic(err)
