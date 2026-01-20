@@ -27,6 +27,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 	Version := buf[0] >> 6
 	if Version != 2 {
 		log.Debug("RTP version is not 2, this is a different stream type not yet supported")
+		log.Sugar().Debugf("Received: %x", buf)
 		return nil, nil
 	}
 	Padding := (buf[0] & PaddingBit) != 0
@@ -58,7 +59,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 		}
 		ExtensionProfile := binary.BigEndian.Uint16(buf[offset : offset+2])
 		ExtensionLength := binary.BigEndian.Uint16(buf[offset+2 : offset+4])
-		log.Debug("RTP Extension", zap.Uint16("Profile", ExtensionProfile), zap.Uint16("Length", ExtensionLength*4))
+		log.Debug("RTP Extension", zap.Uint16("Profile", ExtensionProfile), zap.Uint16("Length", ExtensionLength*4), zap.Uint8("PayloadT", PayloadType))
 		offset += 4
 		ExtensionBytes := int(ExtensionLength) * 4
 		if len(buf) < offset+ExtensionBytes {
@@ -72,7 +73,7 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 			// ExtensionData = nil
 		}
 		offset += ExtensionBytes
-		return nil, nil
+		// return nil, nil
 	}
 	if len(buf) < offset {
 		return nil, errors.New("buffer is smaller than offset")
@@ -91,6 +92,20 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 	var RTPnal byte
 	var NAL byte
 	var Frame = make([]byte, 0, len(Payload))
+	switch PayloadType {
+	//Audio
+	case 0:
+	case 8:
+	case 0xb:
+	case 0xe:
+	case 0x62:
+	case 100:
+	case 0x66:
+	case 0x67:
+	case 0x68:
+	case 0x73:
+		// RTPProcessAudio(buf)
+	}
 	if len(Payload) > 2 {
 		if PayloadType == 96 {
 			RTPnal = (Payload[0] >> 1) & 0x3F
@@ -122,14 +137,17 @@ func (LEZ *LE_EZVIZ_Client) DecodeRTP(buf []byte) ([]byte, error) {
 					log.Debug("rtpnal is 0x32")
 				}
 			}
+			log.Sugar().Debugf("RTPNAL: %x", RTPnal)
+			log.Sugar().Debugf("NAL: %x", NAL)
+			log.Sugar().Debugf("RTP Payload: %x", Payload)
 		}
 		log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Int("PadLen", PaddingLength), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
-		log.Sugar().Debugf("RTPNAL: %x", RTPnal)
-		log.Sugar().Debugf("NAL: %x", NAL)
-		log.Sugar().Debugf("RTP Payload: %x", Payload)
+
 		// Payload = AppendAVCStartCode(Payload)
 		return Frame, nil
 	} else {
+		log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Int("PadLen", PaddingLength), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))
+		log.Sugar().Debugf("RTP Unkown Payload: %x", Payload)
 		return nil, nil
 	}
 	log.Debug("RTP Header", zap.Uint8("Ver", Version), zap.Bool("Pad", Padding), zap.Bool("Ext", Extension), zap.Uint8("CC", ContributionCount), zap.Bool("Mark", Marker), zap.Uint8("PayloadT", PayloadType), zap.Uint16("Seq", SequenceNumber), zap.Uint32("Time", TimeStamp), zap.Uint32("SSI", SSI), zap.Int("PayloadLen", len(Payload)))

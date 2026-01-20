@@ -39,7 +39,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTMStream(VS *VTMStream, StreamURL string) (*ez
 		log.Error("Error creating StreamInfoReq", zap.Error(err))
 		return nil, err
 	}
-	EncodedPacket := EncodeVTMPacket(*StreamReq)
+	EncodedPacket := EncodeVTMPacket(*StreamReq, CHAN_MSG, MSG_STREAMINFO_REQ)
 	log.Sugar().Debugf("bytes: %x", EncodedPacket)
 	// return nil
 	_, err = VS.Conn.Write(EncodedPacket)

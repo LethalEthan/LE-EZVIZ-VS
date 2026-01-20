@@ -42,7 +42,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 		log.Error("Error creating StreamInfoReq", zap.Error(err))
 		return err
 	}
-	EncodedPacket := EncodeVTMPacket(*StreamReq)
+	EncodedPacket := EncodeVTMPacket(*StreamReq, CHAN_MSG, MSG_STREAMINFO_REQ)
 	log.Sugar().Debugf("bytes: %x", EncodedPacket)
 	// return nil
 	_, err = VTDUstream.Conn.Write(EncodedPacket)
@@ -132,6 +132,8 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 					return err
 				} else {
 					log.Debug("Current packet does not have magic, this is another protocol or continuation from previous TCP segment")
+					log.Sugar().Debugf("Received: %x", Packet.Header)
+					// log.Debug("Packet Header", zap.Uint16("Len",Len),zap.Uint8("Chan", Chan),zap.Uint16(""))
 				}
 			}
 			log.Debug("Sequence", zap.Uint16("Seq", Seq))
@@ -141,14 +143,18 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 			if Chan == 0x01 {
 				log.Debug("Stream channel Msgcode", zap.Uint16("code", Msg))
 			}
-			if Msg == MSG_KEEPALIVE_REQ {
+			if Msg == MSG_KEEPALIVE_RSP {
 				log.Debug("Keepalive responded")
 			}
 			Packet.Body = make([]byte, 0, Len)
 			ReadByteCount, err := VTDUstream.Conn.Read(Packet.Body)
+			VTDUstream.Conn.SetReadDeadline(time.Now().Add(time.Second * 4))
 			if err != nil {
 				log.Error("Error reading from TCP sock", zap.Error(err))
 				return err
+			}
+			if Msg == MSG_KEEPALIVE_RSP {
+				log.Sugar().Debugf("KA RSP: %x", Packet.Body)
 			}
 			if ReadByteCount != int(Len) { // read until we fill the Len
 				n := ReadByteCount
@@ -203,7 +209,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 					}
 				}
 			}
-			if Chan == 0x00 && Seq == 0x00 && ATD {
+			if Chan == 0x00 && Seq == 0x00 && Msg != MSG_KEEPALIVE_RSP && ATD {
 				log.Info("Attempting ffmpeg re-encode to mp4")
 				var eg errgroup.Group
 				stream := ffmpeg.Input("./stream").
@@ -221,6 +227,7 @@ func (LEZ *LE_EZVIZ_Client) StartVTDUStream(VTDUstream *VTDUStream, StreamURL st
 				return nil
 			}
 			if len(Packet.Body) > 64 {
+				log.Sugar().Debugf("packet header 64b in hex: %x", Packet.Header)
 				log.Sugar().Debugf("packet 64b in hex: %x", Packet.Body[:64])
 			} else {
 				log.Sugar().Debugf("whole packet in hex: %x", Packet.Body)
@@ -241,7 +248,7 @@ func SendKeepAlive(Sock net.Conn, StreamSSN string) error {
 	if err != nil {
 		return err
 	}
-	EncodedPacket := EncodeVTMPacket(*bytes)
+	EncodedPacket := EncodeVTMPacket(*bytes, CHAN_MSG, MSG_KEEPALIVE_REQ)
 	_, err = Sock.Write(EncodedPacket)
 	if err != nil {
 		return err
@@ -250,7 +257,8 @@ func SendKeepAlive(Sock net.Conn, StreamSSN string) error {
 }
 
 func CreateKeepAliveTicker(Sock net.Conn, StreamSSN string) {
-	ticker := time.NewTicker(15 * time.Second)
+	SendKeepAlive(Sock, StreamSSN)
+	ticker := time.NewTicker(10 * time.Second)
 	for t := range ticker.C {
 		fmt.Println("Sending Keep Alive at", t)
 		err := SendKeepAlive(Sock, StreamSSN)
