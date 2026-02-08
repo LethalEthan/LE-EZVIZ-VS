@@ -247,6 +247,8 @@ func (LEZ *LE_EZVIZ_Client) V3_Login() (*V3_Auth_Login_Response, error) {
 			log.Error("Terminal Bind limit reached, remove some logged in devices in: EZVIZ App Settings -> My Profile -> Login Settings -> Terminal Management. Click and hold to delete single or tap One-Click Cleanup, this may cause a 2FA action")
 		case 1226:
 			log.Error("Invalid email or password")
+		case 6002:
+			log.Error("2FA is enabled, currently not supported but will be in a future update")
 		}
 		return nil, errors.New("api meta code not ok")
 	} else {
