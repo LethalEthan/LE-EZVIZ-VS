@@ -14,6 +14,7 @@ Key | ✅ = supported | ❌ = Not supported (WIP) | ❓= Unknown/May work (If yo
 | ------- | ----- | ------------- | ------------- |
 | DB1     | ❓    | ❓            | ❓            |
 | DB2     | ❓    | ❓            | ❓            |
+| HP2     | PS    | ✅            | ✅            |
 | HP3     | RTP   | ✅            | ❌            |
 | CB3-R1  | PS    | ✅            | ✅            |
 | CB3-R2  | ❓    | ❓            | ❓            |
@@ -22,6 +23,7 @@ Key | ✅ = supported | ❌ = Not supported (WIP) | ❓= Unknown/May work (If yo
 | E/CB5   | RTP   | ✅            | ❌            |
 | CP1     | PS    | ✅            | ✅            |
 | CP1 pro | ❓    | ❓            | ❓            |
+| CP2     | PS    | ✅            | ✅            |
 | C6N     | PS    | ✅            | ✅            |
 | CB8     | RTP   | ✅            | ❌            |
 | HB8     | RTP   | ✅            | ❌            |
